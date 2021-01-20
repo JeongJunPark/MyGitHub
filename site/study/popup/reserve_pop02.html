@@ -1,0 +1,215 @@
+<?
+include $_SERVER['DOCUMENT_ROOT']."/_config/set_session_start.php";		//세션생성 공통파일;
+include $_SERVER['DOCUMENT_ROOT']."/site/common/common.php";
+$db = new DBCmp();
+
+$zb_name = !empty($_SESSION['zb_logged_name']) ? $_SESSION['zb_logged_name'] : '';			// 회원명
+$zb_id	 = !empty($_SESSION['zb_logged_user_id']) ? $_SESSION['zb_logged_user_id'] : '';	// 회원ID
+$zb_no	 = !empty($_SESSION['zb_logged_no']) ? $_SESSION['zb_logged_no'] : '';				// 회원번호
+$no		 = !empty($_GET['rno']) ? $_GET['rno'] : '';										// 예약번호(key)
+
+if((empty($zb_no)) || (empty($zb_id)) || (empty($zb_name)) || (empty($no))){
+	echo "<script>alert('비정상적인 접근입니다.'); window.close();</script>";
+    exit;
+}
+
+$chk_sql	= "SELECT * FROM teacher.reserve_config WHERE no=".$no." ";
+$rs			= $db->execute($chk_sql,3);
+$rs_data	= $db->getDataAssoc($rs);
+?>
+<script src='/js/jquery-1.12.0.min.js'></script>
+<script text="javascript">
+	$(document).ready(function(){
+		reserveCalendar_list();
+
+		$("#p_time_box").hide();
+		$("#p_final_box").hide();
+	});
+
+	
+    $(document).on("click", "#p_sel_date", function () {
+		$(".on_dt").removeClass("on");
+		$(this).addClass("on");
+    });
+	
+	// 달력노출
+	function reserveCalendar_list(current_date){
+		var rno = <?=$no?>;
+
+		$.ajax({ 
+			url:'./action/a.reserve_calendar_ajax.php', 
+			type:'POST',
+			dataType:'json', 
+			data:{
+					no:rno,
+					current_date:current_date
+				}, 
+			success:function(data){
+				$('#calendar_tbl_body').html(data.html);
+			}
+		});
+	}
+
+	// 예약 가능한 시간노출
+	function reserveTime_list(rno,current_date){
+
+		$.ajax({
+			url:'./action/a.reserve_time_ajax.php', 
+			type:'POST',
+			dataType:'json', 
+			data:{
+					method:'list',
+					no:rno,
+					current_date:current_date
+				}, 
+			success:function(data){
+				$('#time_tbl_body').html(data.html);
+				var show_time = current_date.split('-');
+
+				$('#p_year').text(show_time[0]+'년');
+				$('#p_month').text(show_time[1]+'월');
+				$('#p_days').text(show_time[2]+'일');
+
+				$("#p_time_box").show();
+				$("#p_final_box").show();
+			}
+		});
+	}
+	
+	// 선택한 시간노출
+	function sel_time(rno,sel_date,sel_schedule){
+
+		$.ajax({
+			url:'./action/a.reserve_time_ajax.php', 
+			type:'POST',
+			dataType:'json', 
+			data:{  
+					method:'sel_time',
+					no:rno,
+					sel_date:sel_date,
+					sel_schedule:sel_schedule
+				}, 
+			success:function(data){
+				$('#p_reserve_time').addClass("final_dt");
+				$('#p_reserve_time').text(data.html);
+				$('#p_go_apply').html(data.button);
+			}
+		});
+	}
+
+	function go_apply(rno,sel_date,sel_schedule){
+		
+		if(confirm(sel_date+'일 '+sel_schedule+'분 일정으로 예약하시겠습니까?')){
+				$.ajax({
+				url:'./action/a.reserve_modify_ajax.php', 
+				type:'POST',
+				dataType:'json', 
+				data:{  
+						method:'insert',
+						no:rno,
+						sel_date:sel_date,
+						sel_schedule:sel_schedule
+					}, 
+				success:function(data){
+					if(data.msg == 'already'){
+						alert('해당 강의를 예약하신 내역이 존재합니다.');
+						return;
+					}else if(data.msg == 'no_data'){
+						alert('해당 일정의 신청가능 인원수가 초과되었습니다.');
+						return;
+					}else if(data.msg == 'duplication'){
+						alert('이미 예약된 내역이 존재합니다.');
+						return;
+					}else if(data.msg == 'success'){
+						alert('예약이 완료되었습니다.');
+						return;
+					}
+				}
+			});
+		}else{
+			return;
+		}
+	}
+	
+	// 예약 신청하기 클릭시
+	function go_list(div){
+		var rno = <?=$no?>;
+		if(div == 1){
+			location.href='reserve_pop02.html?rno='+rno;
+		}else{
+			location.href='reserve_pop03.html?rno='+rno;
+		}
+	}
+</script>
+<!-- 2차 대비반 예약 신청 : 예약 신청 팝업_메인 화면 -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=euc-kr">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=1050">
+    <meta name="robots" content="ALL" />
+    <meta name="google-site-verification" content="TtBy8SIAbYqjK8BOg-ggw86aqc7CfzMtbEQXIZHQPic" />
+    <meta name="naver-site-verification" content="94cdca090dc4ac3ab96b35828cbf28d046fdd607"/>
+
+    <link rel="stylesheet" href="/css/common.css" type="text/css">
+    <link rel="stylesheet" href="/site/contents/study/css/popup/popup.css" type="text/css">
+</head>
+<body scroll="auto">
+
+<div class="reserve_wrap">
+    <div class="reserve_content">
+        <h1 class="reserve_top_hd"><?=$rs_data['class_title']?></h1>
+        <div class="reserve_my_area">
+            <ul class="reserve_button">
+                <li>
+					<button class="button on" onclick="go_list(1);">예약 일시 선택</button>
+				</li>
+                <li>
+					<button class="button" onclick="go_list(2);">나의 예약 확인</button>
+				</li>
+            </ul>
+            <div class="class_box">
+                <div class="class_top">
+                    <h2>
+                        <em>&bull;</em>예약 일정 선택
+                        <span class="select_date"><em>&#9608;</em> 선택한 날짜</span>
+                    </h2>
+                </div>
+				<!-- 달력 -->
+                <div class="calender_box" id="calendar_tbl_body">
+                </div>
+				<!-- 달력 -->
+
+                <div class="time_box" id="p_time_box">
+                    <div class="class_top">
+                        <h2>
+                            <em>&bull;</em>
+								<span class="day_txt" id="p_year"></span> 
+								<span class="day_txt" id="p_month"></span> 
+								<span class="day_txt" id="p_days"></span> 
+								예약 가능한 시간
+                        </h2>
+                    </div>
+                    <ul id="time_tbl_body" class="time_list">
+                    </ul>
+                </div>
+                <div class="final_box" id="p_final_box">
+                    <div class="class_top">
+                        <h2>
+                            <em>&bull;</em>최종 예약 시간
+                        </h2>
+                    </div>
+                    <div class="" id="p_reserve_time"></div>
+                    <ul class="reserve_button">
+                        <li><button class="button prev" onclick="location.href='reserve_pop01.html'">뒤로 가기</button></li>
+                        <li id="p_go_apply"><button class="button" onclick="alert('일정을 선택해주세요.');">예약 신청하기</button></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>
+

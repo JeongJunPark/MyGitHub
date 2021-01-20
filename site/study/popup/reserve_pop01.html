@@ -1,0 +1,125 @@
+<?
+include $_SERVER['DOCUMENT_ROOT']."/_config/set_session_start.php";		//세션생성 공통파일;
+include $_SERVER['DOCUMENT_ROOT']."/site/common/common.php";
+$db = new DBCmp();
+
+$zb_name = !empty($_SESSION['zb_logged_name']) ? $_SESSION['zb_logged_name'] : '';			// 회원명
+$zb_id	 = !empty($_SESSION['zb_logged_user_id']) ? $_SESSION['zb_logged_user_id'] : '';	// 회원ID
+$zb_no	 = !empty($_SESSION['zb_logged_no']) ? $_SESSION['zb_logged_no'] : '';				// 회원번호
+
+if((empty($zb_no)) || (empty($zb_id)) || (empty($zb_name))){
+	echo "<script>alert('비정상적인 접근입니다.'); window.close();</script>";
+    exit;
+}
+
+$rs_sql= "SELECT * FROM teacher.reserve_config WHERE use_yn= 'Y'";
+$row = $db->sqlRowArr($rs_sql,3);
+
+?>
+<script src='/js/jquery-1.12.0.min.js'></script>
+<script text="javascript">
+	$(document).ready(function(){
+		reserveClass_list();
+	});
+	
+	// 예약 신청리스트
+	function reserveClass_list(){
+		$.ajax({
+			url:'./action/a.reserve_list_ajax.php', 
+			type:'POST',
+			dataType:'json', 
+			data:'no=', 
+			success:function(data){
+				$('#time_tbl_body').html(data.html);
+				$('#able_cnt').text(data.able_cnt);
+				$('#disable_cnt').text(data.disable_cnt);
+			}
+		});
+	}
+	
+	// 예약 신청하기 클릭시
+	function go_reserve(rno){
+
+		$.ajax({
+			url:'./action/a.lecture_check_ajax.php', 
+			type:'POST',
+			dataType:'json', 
+			data:'no='+rno, 
+			success:function(data){
+				if(data.msg == 'error'){
+					alert('비정상적인 접근입니다.');
+					return;
+				}else if(data.msg == 'no_data'){
+					alert('신청 대상자가 아닙니다.');
+					return;
+				}else if(data.msg == 'yet'){
+					alert('예약 신청 기간이 아닙니다.');
+					return;
+				}else if(data.msg == 'ok'){
+					location.href='reserve_pop02.html?rno='+rno;
+				}
+			}
+		});
+	}
+</script>
+
+<!-- 2차 대비반 예약 신청 : 예약 신청 팝업_메인 화면 -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=euc-kr">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=1050">
+    <meta name="robots" content="ALL" />
+    <meta name="google-site-verification" content="TtBy8SIAbYqjK8BOg-ggw86aqc7CfzMtbEQXIZHQPic" />
+    <meta name="naver-site-verification" content="94cdca090dc4ac3ab96b35828cbf28d046fdd607"/>
+
+    <link rel="stylesheet" href="/css/common.css" type="text/css">
+    <link rel="stylesheet" href="/site/contents/study/css/popup/popup.css" type="text/css">
+</head>
+<body scroll="auto">
+<div class="reserve_wrap">
+    <div class="reserve_content">
+        <h1 class="reserve_top_hd">2차 대비 반 예약 신청</h1>
+        <div class="reserve_my_area">
+            <ul class="my_info">
+                <li>
+                    <div class="profile">
+                        <img src="/img/sub/study/img_user.jpg" class="profile_img" alt="프로필 이미지">
+                        <div class="name">
+                            <strong><?=$zb_name?> 님</strong> <span class="user_id">(<?=$zb_id?>)</span>
+                        </div>
+                    </div>
+                </li>
+                <li>
+                    <div class="ing">
+                        진행 중인 예약
+                        <span class="number" id="able_cnt"></span>
+                    </div>
+                </li>
+                <li>
+                    <div class="end">
+                        마감된 예약
+                        <span class="number" id="disable_cnt"></span>
+                    </div>
+                </li>
+            </ul>
+            <div class="class_box">
+                <div class="class_top">
+                    <h2><em>&bull;</em>예약 일정 선택</h2>
+                </div>
+                <div class="select_list">
+					<? if(!empty($row)){ ?>
+						<ul class="class_list" id="time_tbl_body"></ul>
+					<? }else{ ?>
+						<strong class="list_default">예약 클래스가 없습니다.</strong>
+					<? } ?>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
+
